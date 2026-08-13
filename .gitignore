@@ -6,6 +6,10 @@
 # dotenv files
 .env
 
+# Angular CLI cache and generated coverage
+.angular/
+coverage/
+
 # User-specific files
 *.rsuser
 *.suo

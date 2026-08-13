@@ -1,0 +1,439 @@
+{
+  "info": {
+    "_postman_id": "12ebff91-60ee-46f8-94ea-a51e43ea73b8",
+    "name": "Support Management System API",
+    "description": "End-to-end reviewer flow for the Support Management System. Run the requests in collection order against a freshly seeded Development database. Login scripts retain JWTs only in in-memory collection variables; exported secrets are not included.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5052", "type": "string" },
+    { "key": "adminEmail", "value": "admin@support.local", "type": "string" },
+    { "key": "adminPassword", "value": "Admin123!", "type": "string" },
+    { "key": "agentEmail", "value": "agent@support.local", "type": "string" },
+    { "key": "agentPassword", "value": "Agent123!", "type": "string" },
+    { "key": "customerEmail", "value": "customer@support.local", "type": "string" },
+    { "key": "customerPassword", "value": "Customer123!", "type": "string" },
+    { "key": "customer2Email", "value": "", "type": "string" },
+    { "key": "customer2Password", "value": "CustomerTwo123!", "type": "string" },
+    { "key": "adminToken", "value": "", "type": "string" },
+    { "key": "agentToken", "value": "", "type": "string" },
+    { "key": "customerToken", "value": "", "type": "string" },
+    { "key": "customer2Token", "value": "", "type": "string" },
+    { "key": "agentId", "value": "", "type": "string" },
+    { "key": "ticketNumber", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "01 - Authentication",
+      "item": [
+        {
+          "name": "Login - Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('admin login succeeds', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.accessToken).to.be.a('string').and.not.empty;",
+                  "pm.collectionVariables.set('adminToken', body.accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Login - Support Agent",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('agent login succeeds', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('agentToken', body.accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{agentEmail}}\",\n  \"password\": \"{{agentPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Login - Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('customer login succeeds', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('customerToken', body.accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{customerPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Current User",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "url": "{{baseUrl}}/api/auth/me"
+          }
+        },
+        {
+          "name": "Anonymous Ticket List Is Rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('anonymous access is rejected', () => pm.response.to.have.status(401));"]
+              }
+            }
+          ],
+          "request": { "method": "GET", "auth": { "type": "noauth" }, "url": "{{baseUrl}}/api/tickets" }
+        }
+      ]
+    },
+    {
+      "name": "02 - Admin Preparation",
+      "item": [
+        {
+          "name": "List Users and Capture Agent ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('users are returned', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const users = Array.isArray(body) ? body : (body.items || []);",
+                  "const agent = users.find(user => user.email.toLowerCase() === pm.collectionVariables.get('agentEmail').toLowerCase());",
+                  "pm.expect(agent, 'seeded support agent').to.exist;",
+                  "pm.collectionVariables.set('agentId', agent.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+            "url": "{{baseUrl}}/api/users"
+          }
+        },
+        {
+          "name": "Create Second Customer for Isolation Checks",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.collectionVariables.set('customer2Email', `customer2.${Date.now()}@support.local`);"]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('second customer is created', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Second\",\n  \"lastName\": \"Customer\",\n  \"email\": \"{{customer2Email}}\",\n  \"password\": \"{{customer2Password}}\",\n  \"role\": \"Customer\"\n}"
+            },
+            "url": "{{baseUrl}}/api/users"
+          }
+        },
+        {
+          "name": "Login - Second Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('second customer login succeeds', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('customer2Token', pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customer2Email}}\",\n  \"password\": \"{{customer2Password}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Customer Creates Ticket",
+      "item": [
+        {
+          "name": "Create Ticket",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ticket is created', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.number).to.be.a('string').and.not.empty;",
+                  "pm.collectionVariables.set('ticketNumber', body.number);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman printer outage\",\n  \"description\": \"The reception printer is offline and needs investigation.\",\n  \"priority\": \"High\"\n}"
+            },
+            "url": "{{baseUrl}}/api/tickets"
+          }
+        },
+        {
+          "name": "List Own Tickets with Query Features",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('paged ticket is present', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.items.some(ticket => ticket.number === pm.collectionVariables.get('ticketNumber'))).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "url": "{{baseUrl}}/api/tickets?page=1&pageSize=10&search=Postman&status=Open&priority=High&sortBy=createdAt&sortDirection=desc"
+          }
+        },
+        {
+          "name": "Get Own Ticket",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}"
+          }
+        },
+        {
+          "name": "Add Customer Comment",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"content\": \"The power light is blinking amber.\"\n}" },
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/comments"
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Admin Triage",
+      "item": [
+        {
+          "name": "Assign Ticket",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('assignment accepted', () => pm.expect(pm.response.code).to.be.oneOf([200, 204]));"] } }],
+          "request": {
+            "method": "PATCH",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"agentId\": \"{{agentId}}\"\n}" },
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/assignment"
+          }
+        },
+        {
+          "name": "Change Priority",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('priority accepted', () => pm.expect(pm.response.code).to.be.oneOf([200, 204]));"] } }],
+          "request": {
+            "method": "PATCH",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"priority\": \"Critical\"\n}" },
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/priority"
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Agent Work",
+      "item": [
+        {
+          "name": "Start Progress",
+          "request": {
+            "method": "PATCH",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{agentToken}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"InProgress\"\n}" },
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/status"
+          }
+        },
+        {
+          "name": "Add Agent Comment",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{agentToken}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"content\": \"Reconnected the printer and updated its driver.\"\n}" },
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/comments"
+          }
+        },
+        {
+          "name": "Log Time",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{agentToken}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workDate\": \"{{$isoTimestamp}}\",\n  \"durationMinutes\": 35,\n  \"description\": \"Diagnosis, reconnection, and driver update\"\n}"
+            },
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/time-entries"
+          }
+        },
+        {
+          "name": "Resolve Ticket",
+          "request": {
+            "method": "PATCH",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{agentToken}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"Resolved\"\n}" },
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/status"
+          }
+        },
+        {
+          "name": "Get Activity Timeline",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{agentToken}}", "type": "string" }] },
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/timeline"
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Isolation Checks",
+      "item": [
+        {
+          "name": "Second Customer List Excludes Foreign Ticket",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('foreign ticket is absent', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const items = pm.response.json().items || [];",
+                  "  pm.expect(items.some(ticket => ticket.number === pm.collectionVariables.get('ticketNumber'))).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customer2Token}}", "type": "string" }] },
+            "url": "{{baseUrl}}/api/tickets?page=1&pageSize=100"
+          }
+        },
+        {
+          "name": "Second Customer Cannot Read Foreign Ticket",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('foreign detail is hidden', () => pm.response.to.have.status(404));"] } }],
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customer2Token}}", "type": "string" }] },
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}"
+          }
+        },
+        {
+          "name": "Second Customer Cannot Comment on Foreign Ticket",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('foreign comment is rejected without disclosure', () => pm.response.to.have.status(404));"] } }],
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customer2Token}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"content\": \"This must never be accepted.\"\n}" },
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/comments"
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Completion and Dashboard",
+      "item": [
+        {
+          "name": "Customer Closes Resolved Ticket",
+          "request": {
+            "method": "PATCH",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"Closed\"\n}" },
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/status"
+          }
+        },
+        {
+          "name": "Admin Dashboard",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('dashboard loads', () => pm.response.to.have.status(200));"] } }],
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+            "url": "{{baseUrl}}/api/dashboard"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -2,10 +2,15 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="FluentAssertions" Version="8.10.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.11" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
@@ -17,6 +22,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\SMS.API\SMS.API.csproj" />
+    <ProjectReference Include="..\..\src\SMS.Infrastructure\SMS.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\ApiTestFactory.cs" Link="Shared\ApiTestFactory.cs" />
+    <Compile Include="..\Shared\ApiTestClientExtensions.cs" Link="Shared\ApiTestClientExtensions.cs" />
   </ItemGroup>
 
 </Project>

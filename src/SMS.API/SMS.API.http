@@ -1,6 +1,20 @@
-@SMS.API_HostAddress = http://localhost:5052
+@host = http://localhost:5052
+@token = paste-access-token-here
 
-GET {{SMS.API_HostAddress}}/weatherforecast/
+### Health
+GET {{host}}/health
 Accept: application/json
 
-###
+### Login as the seeded customer
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "customer@support.local",
+  "password": "Customer123!"
+}
+
+### List tickets after copying accessToken above
+GET {{host}}/api/tickets?page=1&pageSize=20&sortBy=createdAt&sortDirection=desc
+Accept: application/json
+Authorization: Bearer {{token}}

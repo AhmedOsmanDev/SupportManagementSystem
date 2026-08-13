@@ -1,0 +1,15 @@
+**/bin
+**/obj
+**/node_modules
+**/TestResults
+.git
+.github
+.idea
+.vs
+.vscode
+.env
+artifacts
+client/sms-angular/.angular
+client/sms-angular/coverage
+client/sms-angular/dist
+
