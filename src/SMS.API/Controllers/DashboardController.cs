@@ -1,12 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SMS.Application;
-using SMS.Domain;
 
 namespace SMS.API.Controllers;
 
 [ApiController]
-[Authorize(Roles = nameof(UserRole.Admin))]
+[Authorize(Roles = UserRoleNames.Admin)]
 [Route("api/dashboard")]
 public sealed class DashboardController(IDashboardService dashboardService) : ControllerBase
 {

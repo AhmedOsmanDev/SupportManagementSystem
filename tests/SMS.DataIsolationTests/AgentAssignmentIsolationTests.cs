@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Globalization;
 using FluentAssertions;
 using SMS.Testing;
 
@@ -40,7 +41,8 @@ public sealed class AgentAssignmentIsolationTests(ApiTestFactory factory) : ICla
 
         using var list = await otherAgent.GetAsync("/api/tickets?page=1&pageSize=100");
         list.StatusCode.Should().Be(HttpStatusCode.OK);
-        (await list.Content.ReadAsStringAsync()).Should().NotContain(ticketNumber);
+        (await list.Content.ReadAsStringAsync()).Should().NotContain(
+            $"\"number\":{ticketNumber.ToString(CultureInfo.InvariantCulture)}");
 
         using var detail = await otherAgent.GetAsync($"/api/tickets/{ticketNumber}");
         detail.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -61,7 +63,7 @@ public sealed class AgentAssignmentIsolationTests(ApiTestFactory factory) : ICla
         time.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
-    private static async Task<string> CreateTicketAsync(HttpClient customer)
+    private static async Task<int> CreateTicketAsync(HttpClient customer)
     {
         using var response = await customer.PostAsJsonAsync("/api/tickets", new
         {
@@ -72,7 +74,8 @@ public sealed class AgentAssignmentIsolationTests(ApiTestFactory factory) : ICla
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         ApiTestClientExtensions.TryGetPropertyIgnoringCase(payload.RootElement, "number", out var number).Should().BeTrue();
-        return number.GetString()!;
+        number.ValueKind.Should().Be(JsonValueKind.Number);
+        return number.GetInt32();
     }
 
     private static async Task<Guid> GetSeededAgentIdAsync(HttpClient admin)

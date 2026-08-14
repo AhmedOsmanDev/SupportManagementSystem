@@ -17,7 +17,7 @@ Repository: [github.com/AhmedOsmanDev/SupportManagementSystem](https://github.co
 - Central API error handling, validation, structured logging, DTO boundaries, migrations, and deterministic seed data
 - Fixed-window API rate limiting and SQL Server row-version optimistic concurrency handling
 - Backend unit, API integration, customer-isolation, and frontend unit tests
-- Swagger/OpenAPI, a Postman collection, Docker Compose, and GitHub Actions CI
+- Swagger/OpenAPI, a Postman collection, standalone Docker images/runner, and GitHub Actions CI
 
 ## Technology
 
@@ -32,24 +32,59 @@ Repository: [github.com/AhmedOsmanDev/SupportManagementSystem](https://github.co
 
 ## Architecture
 
-The backend follows a pragmatic layered structure:
+The backend follows Clean Architecture with dependencies pointing toward the core:
 
 ```text
-Angular client
-    │ HTTPS + JWT
-    ▼
-SMS.API              controllers, authentication, middleware, OpenAPI
-    │
-    ▼
-SMS.Application      use-case services, DTOs, validation, abstractions
-    │
-    ├──────────────► SMS.Domain          entities, enums, business rules
-    │
-    ▼
-SMS.Infrastructure   EF Core DbContext, SQL Server, migrations, seeding
+SMS.API ───────────► SMS.Application ───────────► SMS.Domain
+   │                        ▲
+   └──────────────► SMS.Infrastructure ─────────► SMS.Domain
+                            │
+                            └───────────────────► SMS.Application
 ```
 
-Dependencies point inward: API and Infrastructure compose the application; Application references Domain; API responses use DTOs rather than exposing EF entities. The Angular application groups features behind lazy routes, while guards and the authentication interceptor handle client-side access and bearer tokens. Server authorization remains authoritative—route guards are usability controls, not a security boundary.
+| Project | Responsibility | Project dependencies |
+| --- | --- | --- |
+| `SMS.Domain` | Entities, enums, and business invariants | None |
+| `SMS.Application` | Use-case contracts, request/response models, validation errors, and shared abstractions | `SMS.Domain` |
+| `SMS.Infrastructure` | EF Core, SQL Server, seeding, numbering, and service implementations | `SMS.Application`, `SMS.Domain` |
+| `SMS.API` | Controllers, JWT/HTTP adapters, middleware, OpenAPI, and dependency composition | `SMS.Application`, `SMS.Infrastructure` |
+
+The source folders mirror those responsibilities:
+
+```text
+src/
+├── SMS.Domain/
+│   ├── Entities/
+│   └── Enums/
+├── SMS.Application/
+│   ├── Common/
+│   │   ├── Abstractions/
+│   │   ├── Exceptions/
+│   │   └── Models/
+│   └── Features/
+│       ├── Authentication/
+│       ├── Dashboard/
+│       ├── Tickets/
+│       └── Users/
+├── SMS.Infrastructure/
+│   ├── Authentication/
+│   ├── Persistence/
+│   │   ├── Configurations/
+│   │   ├── Initialization/
+│   │   ├── Migrations/
+│   │   └── Numbering/
+│   └── Services/
+│       ├── Dashboard/
+│       ├── Tickets/
+│       └── Users/
+└── SMS.API/
+    ├── Authentication/
+    ├── Controllers/
+    ├── Middleware/
+    └── Persistence/DesignTime/
+```
+
+Each handwritten application type has its own file. EF-backed implementations remain in Infrastructure so Application stays independent of EF Core, while API consumes only Application-facing contracts and Infrastructure registration—never Domain entities directly. API responses use DTOs rather than exposing EF entities. The Angular application groups features behind lazy routes, while guards and the authentication interceptor handle client-side access and bearer tokens. Server authorization remains authoritative—route guards are usability controls, not a security boundary.
 
 ## Prerequisites
 
@@ -57,7 +92,8 @@ Choose either Docker or local tooling.
 
 ### Docker path
 
-- Docker Engine / Docker Desktop with Compose v2
+- Docker Engine / Docker Desktop
+- A POSIX shell (`sh` through Git Bash, WSL, Linux, or macOS) for `docker.sh`
 - At least 4 GB available memory for SQL Server
 
 ### Local path
@@ -67,7 +103,7 @@ Choose either Docker or local tooling.
 - SQL Server 2022 (Developer, Express, LocalDB, or a container)
 - Optional: EF CLI, installed with `dotnet tool install --global dotnet-ef --version 10.*`
 
-## Quick start with Docker Compose
+## Quick start with Docker
 
 1. Copy the example environment file and replace both development-only values:
 
@@ -79,10 +115,10 @@ Choose either Docker or local tooling.
    cp .env.example .env
    ```
 
-2. Start SQL Server, the API, and the web client:
+2. Build the API/web images and start SQL Server, the API, and the web client with plain Docker commands:
 
    ```bash
-   docker compose up --build
+   sh ./docker.sh up
    ```
 
 3. Open:
@@ -91,7 +127,16 @@ Choose either Docker or local tooling.
    - Swagger UI: <http://localhost:5052/swagger>
    - OpenAPI JSON: <http://localhost:5052/swagger/v1/swagger.json>
 
-4. Stop services with `docker compose down`. Add `--volumes` only when you intentionally want to delete the local SQL data volume and reseed from scratch.
+4. Manage the stack with:
+
+   ```bash
+   sh ./docker.sh status
+   sh ./docker.sh logs api   # api, web, or sql
+   sh ./docker.sh down       # preserves SQL data
+   sh ./docker.sh reset      # permanently deletes SQL data and reseeds
+   ```
+
+`docker.sh build` builds `support-management-api:local` and `support-management-web:local` without requiring `.env`; CI uses this command to validate both Dockerfiles. The runner binds its ports to localhost only and stores SQL data in the `sms-sql-data` volume. A persisted SQL volume keeps the password used when it was created, so changing `MSSQL_SA_PASSWORD` later requires the original value or an explicit `reset`.
 
 ## Local setup
 
@@ -100,7 +145,7 @@ Choose either Docker or local tooling.
 The repository contains no production secrets. Configure a local SQL connection and JWT signing key with .NET user secrets:
 
 ```bash
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost;Database=SupportManagement;Trusted_Connection=True;TrustServerCertificate=True" --project src/SMS.API
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" 'Server=localhost;Database=SMS;User=sa;Password=P@$$w0rd;Encrypt=True;TrustServerCertificate=True;' --project src/SMS.API
 dotnet user-secrets set "Jwt:Secret" "replace-with-a-random-secret-at-least-32-characters-long" --project src/SMS.API
 ```
 
@@ -199,11 +244,13 @@ npm run build
 
 CI runs backend restore/build/tests, frontend tests/build, uploads backend test results, and validates both container builds. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
-Latest local verification: 57 backend tests passed (28 unit, 19 integration, 10 isolation), 11 frontend tests passed, the Release/API and Angular production builds completed without warnings or errors, EF reported no pending model changes, and login/dashboard were smoke-tested against SQL Server LocalDB. Docker was unavailable on the verification machine, so container image builds are delegated to CI.
+Latest local verification: 66 backend tests passed (30 unit, 26 integration, 10 isolation), 11 frontend tests passed, and the Release/API and Angular production builds completed without warnings or errors. EF reported no pending model changes, and the integer ticket migration was verified against SQL Server LocalDB in both directions while preserving related data. Docker was unavailable on the verification machine, so container image builds are delegated to CI.
 
 ## Database migrations
 
 Migrations live in `src/SMS.Infrastructure/Persistence/Migrations`. After an intentional model change, create and review a migration:
+
+EF commands use the API project's design-time `ApplicationDbContextFactory`, so they require only `ConnectionStrings:DefaultConnection`; the JWT signing secret is required when running the API, not when generating migrations.
 
 ```bash
 dotnet ef migrations add MeaningfulMigrationName --project src/SMS.Infrastructure --startup-project src/SMS.API
@@ -211,6 +258,8 @@ dotnet ef database update --project src/SMS.Infrastructure --startup-project src
 ```
 
 Never edit an already-applied production migration. Generate a follow-up migration instead.
+
+`ConvertTicketNumbersToIntegers` converts the former numeric strings to integers without renumbering them (`00003` becomes `3`). Related comments, activities, and time entries are converted in the same transaction and keep their relationships. The migration also widens the SQL Server sequence from the former five-digit range to the full positive `int` range.
 
 ## Configuration and security notes
 
@@ -232,13 +281,13 @@ Never edit an already-applied production migration. Generate a follow-up migrati
 | OpenAPI | `/swagger` and `/swagger/v1/swagger.json` while the API runs |
 | Postman | `docs/postman/SupportManagementSystem.postman_collection.json` |
 | Screenshots or video | Seven runtime screenshots in `docs/screenshots/`; repeatable capture script in `scripts/capture-screenshots.ps1` |
-| Docker and CI bonus | `docker-compose.yml`, `docker/`, and `.github/workflows/ci.yml` |
+| Docker and CI bonus | `docker/api.Dockerfile`, `docker/web.Dockerfile`, `docker.sh`, and `.github/workflows/ci.yml` |
 
 ## Assumptions and known limitations
 
 ### Assumptions
 
-- A ticket number is the public auto-generated identifier and remains immutable.
+- A ticket number is an immutable, auto-generated positive integer such as `3` or `16`.
 - Customers may create tickets, comment on their own tickets, and close their own tickets only after they are Resolved.
 - Support agents operate only on tickets assigned to them; admins can see and manage all tickets.
 - Only admins assign agents or change priority. Agents may progress assigned-ticket status and log their own time.
@@ -251,10 +300,10 @@ Never edit an already-applied production migration. Generate a follow-up migrati
 
 - No email, SMS, file attachment, SLA/escalation, or external identity-provider integration is included.
 - Access tokens are the implemented session mechanism; optional refresh-token rotation was not implemented.
-- SignalR live updates and application-level caching were not implemented. Docker Compose, optimistic concurrency, rate limiting, and CI are included from the optional bonus list.
+- SignalR live updates and application-level caching were not implemented. Standalone Docker images, optimistic concurrency, rate limiting, and CI are included from the optional bonus list.
 - The activity timeline is application-enforced audit history, not a compliance-grade immutable audit store.
 - Dashboard aggregation is computed on demand and is suitable for assessment-scale data; a production deployment may add caching/read models.
-- Docker Compose is for local development, not a hardened production topology (TLS termination, managed secrets, backups, and observability must be supplied by the deployment platform).
+- The standalone Docker runner is for local development, not a hardened production topology. Environment values remain visible to local Docker administrators; production deployments must supply managed secrets, TLS termination, backups, and observability.
 - SQL Server is the supported persistent provider. In-memory EF is used only by isolated automated tests and may not reproduce every relational edge case.
 - Publishing or updating the hosted Git repository remains an explicit submitter action; the repository includes locally captured UI/Swagger screenshots and a reproducible capture script.
 

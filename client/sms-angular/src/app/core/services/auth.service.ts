@@ -1,7 +1,16 @@
 import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { map, Observable, tap } from 'rxjs';
+import {
+  EMPTY,
+  catchError,
+  finalize,
+  map,
+  Observable,
+  shareReplay,
+  tap,
+  throwError,
+} from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   ApiAuthResponse,
@@ -10,7 +19,7 @@ import {
   LoginRequest,
   normalizeRole,
   UserRole,
-} from '../models/auth.models';
+} from '../models';
 
 const SESSION_KEY = 'sms.auth.session';
 const ROLE_CLAIM = 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role';
@@ -22,26 +31,57 @@ export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
   private readonly sessionState = signal<AuthSession | null>(this.restoreSession());
+  private refreshRequest$: Observable<AuthSession> | null = null;
 
   readonly session = this.sessionState.asReadonly();
   readonly user = computed(() => this.sessionState()?.user ?? null);
   readonly token = computed(() => this.sessionState()?.accessToken ?? null);
-  readonly isAuthenticated = computed(() => Boolean(this.sessionState()?.accessToken));
+  readonly isAuthenticated = computed(() => this.sessionState() !== null);
 
   login(request: LoginRequest): Observable<AuthSession> {
     return this.http.post<ApiAuthResponse>(`${environment.apiUrl}/auth/login`, request).pipe(
       map((response) => this.toSession(response)),
-      tap((session) => {
-        this.sessionState.set(session);
-        this.storage?.setItem(SESSION_KEY, JSON.stringify(session));
-      }),
+      tap((session) => this.persistSession(session)),
     );
   }
 
-  logout(redirect = true): void {
-    this.storage?.removeItem(SESSION_KEY);
-    this.sessionState.set(null);
-    if (redirect) void this.router.navigateByUrl('/login');
+  refreshAccessToken(): Observable<string> {
+    const refreshToken = this.sessionState()?.refreshToken?.trim();
+    if (!refreshToken) {
+      this.logout(true, false);
+      return throwError(() => new Error('No refresh token is available.'));
+    }
+
+    if (!this.refreshRequest$) {
+      this.refreshRequest$ = this.http
+        .post<ApiAuthResponse>(`${environment.apiUrl}/auth/refresh`, { refreshToken })
+        .pipe(
+          map((response) => this.toSession(response)),
+          tap((session) => {
+            if (this.sessionState()?.refreshToken === refreshToken) {
+              this.persistSession(session);
+            }
+          }),
+          finalize(() => {
+            this.refreshRequest$ = null;
+          }),
+          shareReplay(1),
+        );
+    }
+
+    return this.refreshRequest$.pipe(map((session) => session.accessToken));
+  }
+
+  logout(redirect = true, revokeSessionOnServer = true): void {
+    const refreshToken = this.sessionState()?.refreshToken?.trim();
+    this.clearSession(redirect);
+
+    if (revokeSessionOnServer && refreshToken) {
+      this.http
+        .post<void>(`${environment.apiUrl}/auth/logout`, { refreshToken })
+        .pipe(catchError(() => EMPTY))
+        .subscribe();
+    }
   }
 
   hasAnyRole(...roles: UserRole[]): boolean {
@@ -53,6 +93,10 @@ export class AuthService {
     const accessToken = response.accessToken ?? response.token ?? response.jwtToken;
     if (!accessToken)
       throw new Error('The authentication response did not include an access token.');
+
+    const refreshToken = response.refreshToken?.trim();
+    if (!refreshToken)
+      throw new Error('The authentication response did not include a refresh token.');
 
     const claims = this.decodeClaims(accessToken);
     const suppliedUser = response.user ?? {};
@@ -71,8 +115,9 @@ export class AuthService {
 
     return {
       accessToken,
-      refreshToken: response.refreshToken,
+      refreshToken,
       expiresAt: response.expiresAt,
+      refreshTokenExpiresAt: response.refreshTokenExpiresAt,
       user,
     };
   }
@@ -92,18 +137,36 @@ export class AuthService {
     try {
       const raw = this.storage?.getItem(SESSION_KEY);
       if (!raw) return null;
+
       const session = JSON.parse(raw) as AuthSession;
-      const claims = this.decodeClaims(session.accessToken);
-      const expiresAt = Number(claims['exp'] ?? 0);
-      if (expiresAt && expiresAt * 1000 <= Date.now()) {
+      if (!session.accessToken || !session.refreshToken || this.isExpired(session.refreshTokenExpiresAt)) {
         this.storage?.removeItem(SESSION_KEY);
         return null;
       }
+
       return session;
     } catch {
       this.storage?.removeItem(SESSION_KEY);
       return null;
     }
+  }
+
+  private persistSession(session: AuthSession): void {
+    this.sessionState.set(session);
+    this.storage?.setItem(SESSION_KEY, JSON.stringify(session));
+  }
+
+  private clearSession(redirect: boolean): void {
+    this.refreshRequest$ = null;
+    this.storage?.removeItem(SESSION_KEY);
+    this.sessionState.set(null);
+    if (redirect) void this.router.navigateByUrl('/login');
+  }
+
+  private isExpired(value?: string): boolean {
+    if (!value) return false;
+    const time = Date.parse(value);
+    return Number.isFinite(time) && time <= Date.now();
   }
 
   private get storage(): Storage | null {

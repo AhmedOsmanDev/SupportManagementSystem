@@ -20,8 +20,11 @@ if (string.IsNullOrWhiteSpace(jwtSecret) || jwtSecret.Length < 32)
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "SupportManagementSystem";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "SupportManagementSystem.Client";
 var jwtMinutes = builder.Configuration.GetValue("Jwt:AccessTokenMinutes", 60);
+var refreshTokenDays = builder.Configuration.GetValue("Jwt:RefreshTokenDays", 14);
+if (refreshTokenDays <= 0)
+    throw new InvalidOperationException("Jwt:RefreshTokenDays must be greater than zero.");
 
-builder.Services.AddSingleton(new JwtSettings(jwtSecret, jwtIssuer, jwtAudience, jwtMinutes));
+builder.Services.AddSingleton(new TokenSettings(jwtSecret, jwtIssuer, jwtAudience, jwtMinutes, refreshTokenDays));
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.AddSingleton<ITokenGenerator, JwtTokenGenerator>();
@@ -39,16 +42,16 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Support Ticket Management API",
+        Title = "Support Management System (SMS) API",
         Version = "v1",
-        Description = "Role-aware ticket, activity, time-tracking, and dashboard endpoints."
+        Description = "Role-aware support ticket, activity, time-tracking, and dashboard endpoints."
     });
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Type = SecuritySchemeType.Http,
         Scheme = "bearer",
         BearerFormat = "JWT",
-        Description = "Enter the JWT returned by POST /api/auth/login."
+        Description = "Enter the JWT returned by POST /api/auth/login or POST /api/auth/refresh."
     });
     options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
     {
@@ -82,12 +85,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     return;
                 }
 
-                var dbContext = context.HttpContext.RequestServices.GetRequiredService<ApplicationDbContext>();
-                var user = await dbContext.Users.AsNoTracking()
-                    .Where(candidate => candidate.Id == userId && candidate.IsActive)
-                    .Select(candidate => new { candidate.Role })
-                    .SingleOrDefaultAsync(context.HttpContext.RequestAborted);
-                if (user is null || !string.Equals(user.Role.ToString(), roleValue, StringComparison.Ordinal))
+                var validator = context.HttpContext.RequestServices.GetRequiredService<IActiveUserValidator>();
+                if (!await validator.IsValidAsync(userId, roleValue, context.HttpContext.RequestAborted))
                     context.Fail("The account is inactive or its access has changed.");
             }
         };
@@ -121,7 +120,11 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(options =>
+    {
+        options.DocumentTitle = "SMS API";
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Support Management System (SMS) v1");
+    });
 }
 
 app.UseCors("Client");

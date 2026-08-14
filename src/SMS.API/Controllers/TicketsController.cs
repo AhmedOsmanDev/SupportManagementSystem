@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SMS.Application;
-using SMS.Domain;
 
 namespace SMS.API.Controllers;
 
@@ -17,13 +16,13 @@ public sealed class TicketsController(ITicketService ticketService) : Controller
         CancellationToken cancellationToken) =>
         Ok(await ticketService.GetTicketsAsync(query, cancellationToken));
 
-    [HttpGet("{number}")]
+    [HttpGet("{number:int}")]
     [ProducesResponseType<TicketDetailDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<TicketDetailDto>> GetTicket(string number, CancellationToken cancellationToken) =>
+    public async Task<ActionResult<TicketDetailDto>> GetTicket(int number, CancellationToken cancellationToken) =>
         Ok(await ticketService.GetTicketAsync(number, cancellationToken));
 
-    [Authorize(Roles = nameof(UserRole.Customer))]
+    [Authorize(Roles = UserRoleNames.Customer)]
     [HttpPost]
     [ProducesResponseType<TicketDetailDto>(StatusCodes.Status201Created)]
     public async Task<ActionResult<TicketDetailDto>> CreateTicket(CreateTicketRequest request, CancellationToken cancellationToken)
@@ -32,47 +31,47 @@ public sealed class TicketsController(ITicketService ticketService) : Controller
         return CreatedAtAction(nameof(GetTicket), new { number = ticket.Number }, ticket);
     }
 
-    [Authorize(Roles = $"{nameof(UserRole.Admin)},{nameof(UserRole.SupportAgent)},{nameof(UserRole.Customer)}")]
-    [HttpPatch("{number}/status")]
-    public async Task<IActionResult> UpdateStatus(string number, UpdateTicketStatusRequest request, CancellationToken cancellationToken)
+    [Authorize(Roles = UserRoleNames.All)]
+    [HttpPatch("{number:int}/status")]
+    public async Task<IActionResult> UpdateStatus(int number, UpdateTicketStatusRequest request, CancellationToken cancellationToken)
     {
         await ticketService.UpdateStatusAsync(number, request, cancellationToken);
         return NoContent();
     }
 
-    [Authorize(Roles = nameof(UserRole.Admin))]
-    [HttpPatch("{number}/priority")]
-    public async Task<IActionResult> UpdatePriority(string number, UpdateTicketPriorityRequest request, CancellationToken cancellationToken)
+    [Authorize(Roles = UserRoleNames.Admin)]
+    [HttpPatch("{number:int}/priority")]
+    public async Task<IActionResult> UpdatePriority(int number, UpdateTicketPriorityRequest request, CancellationToken cancellationToken)
     {
         await ticketService.UpdatePriorityAsync(number, request, cancellationToken);
         return NoContent();
     }
 
-    [Authorize(Roles = nameof(UserRole.Admin))]
-    [HttpPatch("{number}/assignment")]
-    public async Task<IActionResult> UpdateAssignment(string number, AssignTicketRequest request, CancellationToken cancellationToken)
+    [Authorize(Roles = UserRoleNames.Admin)]
+    [HttpPatch("{number:int}/assignment")]
+    public async Task<IActionResult> UpdateAssignment(int number, AssignTicketRequest request, CancellationToken cancellationToken)
     {
         await ticketService.UpdateAssignmentAsync(number, request, cancellationToken);
         return NoContent();
     }
 
-    [HttpPost("{number}/comments")]
-    public async Task<IActionResult> AddComment(string number, AddCommentRequest request, CancellationToken cancellationToken)
+    [HttpPost("{number:int}/comments")]
+    public async Task<IActionResult> AddComment(int number, AddCommentRequest request, CancellationToken cancellationToken)
     {
         await ticketService.AddCommentAsync(number, request, cancellationToken);
         return NoContent();
     }
 
-    [Authorize(Roles = nameof(UserRole.SupportAgent))]
-    [HttpPost("{number}/time-entries")]
-    public async Task<IActionResult> LogTime(string number, LogTimeRequest request, CancellationToken cancellationToken)
+    [Authorize(Roles = UserRoleNames.SupportAgent)]
+    [HttpPost("{number:int}/time-entries")]
+    public async Task<IActionResult> LogTime(int number, LogTimeRequest request, CancellationToken cancellationToken)
     {
         await ticketService.LogTimeAsync(number, request, cancellationToken);
         return NoContent();
     }
 
-    [HttpGet("{number}/timeline")]
+    [HttpGet("{number:int}/timeline")]
     [ProducesResponseType<IReadOnlyCollection<TicketActivityDto>>(StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyCollection<TicketActivityDto>>> GetTimeline(string number, CancellationToken cancellationToken) =>
+    public async Task<ActionResult<IReadOnlyCollection<TicketActivityDto>>> GetTimeline(int number, CancellationToken cancellationToken) =>
         Ok(await ticketService.GetTimelineAsync(number, cancellationToken));
 }

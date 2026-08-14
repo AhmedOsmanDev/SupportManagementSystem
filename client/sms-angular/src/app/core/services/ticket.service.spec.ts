@@ -44,15 +44,15 @@ describe('TicketService', () => {
   });
 
   it('normalizes a ticket timeline without exposing transport quirks to components', () => {
-    service.getTicket('TKT-1001').subscribe((ticket) => {
-      expect(ticket.number).toBe('TKT-1001');
+    service.getTicket(16).subscribe((ticket) => {
+      expect(ticket.number).toBe(16);
       expect(ticket.activities[0].type).toBe('StatusChanged');
       expect(ticket.totalTimeMinutes).toBe(45);
     });
 
-    const request = http.expectOne(`${environment.apiUrl}/tickets/TKT-1001`);
+    const request = http.expectOne(`${environment.apiUrl}/tickets/16`);
     request.flush({
-      ticketNumber: 'TKT-1001',
+      ticketNumber: 16,
       title: 'Printer issue',
       status: 'InProgress',
       priority: 'High',

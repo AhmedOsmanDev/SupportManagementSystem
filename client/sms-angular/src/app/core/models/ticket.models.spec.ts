@@ -1,4 +1,4 @@
-import { allowedStatusTransitions, formatMinutes } from './ticket.models';
+import { allowedStatusTransitions, formatMinutes } from './index';
 
 describe('ticket business rules', () => {
   it('only permits a customer to close a resolved ticket', () => {

@@ -9,8 +9,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { finalize } from 'rxjs';
-import { CreateUserRequest, ManagedUser } from '../../core/models/admin.models';
-import { UserRole } from '../../core/models/auth.models';
+import { CreateUserRequest, ManagedUser, UserRole } from '../../core/models';
 import { AdminService } from '../../core/services/admin.service';
 import { apiErrorMessage } from '../../core/services/api-error';
 

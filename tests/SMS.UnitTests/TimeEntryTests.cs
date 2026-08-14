@@ -12,7 +12,7 @@ public sealed class TimeEntryTests
     public void Create_WithOutOfRangeDuration_Throws(int durationMinutes)
     {
         var act = () => TimeEntry.Create(
-            "TKT-000001",
+            1,
             Guid.NewGuid(),
             DateTime.UtcNow,
             durationMinutes,
@@ -29,7 +29,7 @@ public sealed class TimeEntryTests
     public void Create_WithValidDuration_PreservesMinutes(int durationMinutes)
     {
         var entry = TimeEntry.Create(
-            "TKT-000001",
+            1,
             Guid.NewGuid(),
             DateTime.UtcNow,
             durationMinutes,
@@ -45,7 +45,7 @@ public sealed class TimeEntryTests
         var workDate = new DateTime(2026, 8, 13, 18, 42, 30, DateTimeKind.Local);
 
         var entry = TimeEntry.Create(
-            "TKT-000001",
+            1,
             Guid.NewGuid(),
             workDate,
             15,
@@ -55,4 +55,3 @@ public sealed class TimeEntryTests
         entry.WorkDate.Kind.Should().Be(DateTimeKind.Utc);
     }
 }
-

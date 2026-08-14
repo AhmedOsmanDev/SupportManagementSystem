@@ -4,7 +4,7 @@ This five-to-seven-minute path covers the assessment's highest-value behavior. S
 
 ## Before recording
 
-1. Start the API and Angular application using either the Docker Compose or local setup in the root README.
+1. For predictable Docker demo data, run `sh ./docker.sh reset` (this permanently deletes the runner's local SQL volume), or prepare a clean database with the local setup in the root README.
 2. Open the browser developer tools on the **Network** tab; keep passwords and JWTs out of the recording.
 3. Have the seeded admin, agent, and two customer accounts ready.
 4. Verify Swagger is reachable at `http://localhost:5052/swagger` and the application at `http://localhost:4200`.
@@ -47,4 +47,3 @@ This five-to-seven-minute path covers the assessment's highest-value behavior. S
 - Avoid showing `.env`, `appsettings.Development.json`, Authorization headers, or access tokens.
 - Use synthetic customer data only.
 - Capture the dashboard, ticket list, ticket details/timeline, create form, and Swagger page if screenshots are submitted instead of video.
-

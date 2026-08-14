@@ -10,8 +10,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTabsModule } from '@angular/material/tabs';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize, Observable } from 'rxjs';
-import { ManagedUser } from '../../core/models/admin.models';
 import {
+  ManagedUser,
   formatMinutes,
   allowedStatusTransitions,
   TicketDetail,
@@ -19,7 +19,7 @@ import {
   ticketPriorities,
   TicketStatus,
   displayStatus,
-} from '../../core/models/ticket.models';
+} from '../../core/models';
 import { AdminService } from '../../core/services/admin.service';
 import { apiErrorMessage } from '../../core/services/api-error';
 import { AuthService } from '../../core/services/auth.service';
@@ -57,7 +57,9 @@ import { TicketService } from '../../core/services/ticket.service';
         <header class="detail-header">
           <div>
             <div class="detail-kicker">
-              <span class="ticket-number">{{ item.number }}</span
+              <span class="ticket-number" [attr.aria-label]="'Ticket number ' + item.number">{{
+                item.number
+              }}</span
               ><span class="badge badge--{{ item.status }}">{{ statusLabel(item.status) }}</span
               ><span class="priority priority--{{ item.priority }}">{{ item.priority }}</span>
             </div>
@@ -316,7 +318,7 @@ export class TicketDetailComponent {
   private readonly admin = inject(AdminService);
   private readonly route = inject(ActivatedRoute);
   private readonly snackBar = inject(MatSnackBar);
-  readonly number = this.route.snapshot.paramMap.get('number') ?? '';
+  readonly number = Number(this.route.snapshot.paramMap.get('number'));
   readonly ticket = signal<TicketDetail | null>(null);
   readonly agents = signal<ManagedUser[]>([]);
   readonly loading = signal(false);

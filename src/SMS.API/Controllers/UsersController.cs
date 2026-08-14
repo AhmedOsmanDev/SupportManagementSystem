@@ -1,19 +1,18 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SMS.Application;
-using SMS.Domain;
 
 namespace SMS.API.Controllers;
 
 [ApiController]
-[Authorize(Roles = nameof(UserRole.Admin))]
+[Authorize(Roles = UserRoleNames.Admin)]
 [Route("api/users")]
 public sealed class UsersController(IUserService userService) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType<IReadOnlyCollection<ManagedUserDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyCollection<ManagedUserDto>>> GetUsers(
-        [FromQuery] UserRole? role,
+        [FromQuery] UserRoleFilter? role,
         [FromQuery] bool activeOnly = false,
         CancellationToken cancellationToken = default) =>
         Ok(await userService.GetUsersAsync(role, activeOnly, cancellationToken));

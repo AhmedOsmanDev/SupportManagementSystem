@@ -196,7 +196,7 @@ try {
 
     $agent = Login "agent@support.local" "Agent123!"
     Set-Session $agent
-    Navigate-And-Wait -Url "$WebUrl/tickets/TKT-DEMO-CRITICAL" -ExpectedText "Checkout unavailable"
+    Navigate-And-Wait -Url "$WebUrl/tickets/1" -ExpectedText "Checkout unavailable"
     Send-CdpCommand -Method "Runtime.evaluate" -Parameters @{
         expression = "Array.from(document.querySelectorAll('[role=tab]')).find(tab => tab.textContent.includes('Activity'))?.click()"
     } | Out-Null

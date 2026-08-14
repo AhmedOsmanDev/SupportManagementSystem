@@ -25,10 +25,10 @@ describe('route guards', () => {
 
   it('redirects anonymous navigation to login with a return URL', () => {
     const result = TestBed.runInInjectionContext(() =>
-      authGuard({} as ActivatedRouteSnapshot, { url: '/tickets/TKT-1' } as RouterStateSnapshot),
+      authGuard({} as ActivatedRouteSnapshot, { url: '/tickets/1' } as RouterStateSnapshot),
     );
     expect(TestBed.inject(Router).serializeUrl(result as UrlTree)).toBe(
-      '/login?returnUrl=%2Ftickets%2FTKT-1',
+      '/login?returnUrl=%2Ftickets%2F1',
     );
   });
 

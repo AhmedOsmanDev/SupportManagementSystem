@@ -1,0 +1,23 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using SMS.Domain;
+
+namespace SMS.Infrastructure.Persistence.Configurations;
+
+public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
+{
+    public void Configure(EntityTypeBuilder<RefreshToken> builder)
+    {
+        builder.HasKey(token => token.Id);
+        builder.Property(token => token.TokenHash).HasMaxLength(64).IsRequired();
+        builder.Property(token => token.ReplacedByTokenHash).HasMaxLength(64);
+        builder.Property(token => token.RevocationReason).HasMaxLength(256);
+        builder.HasIndex(token => token.TokenHash).IsUnique();
+        builder.HasIndex(token => new { token.UserId, token.ExpiresAt });
+
+        builder.HasOne(token => token.User)
+            .WithMany()
+            .HasForeignKey(token => token.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}

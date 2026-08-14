@@ -22,7 +22,7 @@ public sealed class AnonymousAccessTests(ApiTestFactory factory) : IClassFixture
     {
         using var client = factory.CreateApiClient();
 
-        using var response = await client.GetAsync("/api/tickets/TKT-000001");
+        using var response = await client.GetAsync("/api/tickets/1");
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -33,10 +33,9 @@ public sealed class AnonymousAccessTests(ApiTestFactory factory) : IClassFixture
         using var client = factory.CreateApiClient();
 
         using var response = await client.PostAsJsonAsync(
-            "/api/tickets/TKT-000001/comments",
+            "/api/tickets/1/comments",
             new { content = "Unauthorized comment" });
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 }
-

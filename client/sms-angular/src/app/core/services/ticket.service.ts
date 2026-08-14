@@ -12,7 +12,7 @@ import {
   TicketQuery,
   TicketStatus,
   TicketSummary,
-} from '../models/ticket.models';
+} from '../models';
 
 @Injectable({ providedIn: 'root' })
 export class TicketService {
@@ -32,7 +32,7 @@ export class TicketService {
       .pipe(map((value) => this.normalizePage(value, query)));
   }
 
-  getTicket(number: string): Observable<TicketDetail> {
+  getTicket(number: number): Observable<TicketDetail> {
     return this.http
       .get<unknown>(`${this.endpoint}/${encodeURIComponent(number)}`)
       .pipe(map((value) => this.normalizeDetail(value)));
@@ -44,30 +44,30 @@ export class TicketService {
       .pipe(map((value) => this.normalizeDetail(value)));
   }
 
-  addComment(number: string, request: AddCommentRequest): Observable<void> {
+  addComment(number: number, request: AddCommentRequest): Observable<void> {
     return this.http.post<void>(`${this.endpoint}/${encodeURIComponent(number)}/comments`, request);
   }
 
-  logTime(number: string, request: LogTimeRequest): Observable<void> {
+  logTime(number: number, request: LogTimeRequest): Observable<void> {
     return this.http.post<void>(
       `${this.endpoint}/${encodeURIComponent(number)}/time-entries`,
       request,
     );
   }
 
-  updateStatus(number: string, status: TicketStatus): Observable<void> {
+  updateStatus(number: number, status: TicketStatus): Observable<void> {
     return this.http.patch<void>(`${this.endpoint}/${encodeURIComponent(number)}/status`, {
       status,
     });
   }
 
-  updatePriority(number: string, priority: TicketPriority): Observable<void> {
+  updatePriority(number: number, priority: TicketPriority): Observable<void> {
     return this.http.patch<void>(`${this.endpoint}/${encodeURIComponent(number)}/priority`, {
       priority,
     });
   }
 
-  assign(number: string, agentId: string | null): Observable<void> {
+  assign(number: number, agentId: string | null): Observable<void> {
     return this.http.patch<void>(`${this.endpoint}/${encodeURIComponent(number)}/assignment`, {
       agentId,
     });
@@ -92,7 +92,7 @@ export class TicketService {
   private normalizeSummary(value: unknown): TicketSummary {
     const item = (value ?? {}) as Record<string, unknown>;
     return {
-      number: String(item['number'] ?? item['ticketNumber'] ?? item['id'] ?? ''),
+      number: Number(item['number'] ?? item['ticketNumber'] ?? item['id'] ?? 0),
       title: String(item['title'] ?? ''),
       description: String(item['description'] ?? ''),
       status: String(item['status'] ?? 'Open').replace(/\s/g, '') as TicketStatus,

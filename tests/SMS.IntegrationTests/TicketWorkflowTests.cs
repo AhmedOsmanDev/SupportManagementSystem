@@ -9,6 +9,22 @@ namespace SMS.IntegrationTests;
 public sealed class TicketWorkflowTests(ApiTestFactory factory) : IClassFixture<ApiTestFactory>
 {
     [Fact]
+    public async Task CreateTicket_AllocatesDistinctIncreasingIntegers()
+    {
+        using var customer = await factory.CreateAuthenticatedClientAsync(
+            "customer@support.local",
+            "Customer123!");
+
+        var first = await CreateTicketAsync(customer);
+        var second = await CreateTicketAsync(customer);
+
+        first.Should().BePositive();
+        second.Should().BePositive();
+        second.Should().NotBe(first);
+        second.Should().BeGreaterThan(first);
+    }
+
+    [Fact]
     public async Task AssignedTicket_CanProgressThroughCommentTimeResolveAndCustomerClose()
     {
         using var customer = await factory.CreateAuthenticatedClientAsync(
@@ -244,10 +260,10 @@ public sealed class TicketWorkflowTests(ApiTestFactory factory) : IClassFixture<
         return Guid.Parse(ReadString(agent, "id"));
     }
 
-    private static Task<string> CreateTicketAsync(HttpClient customer) =>
+    private static Task<int> CreateTicketAsync(HttpClient customer) =>
         CreateTicketAsync(customer, $"Workflow ticket {Guid.NewGuid():N}", "High");
 
-    private static async Task<string> CreateTicketAsync(
+    private static async Task<int> CreateTicketAsync(
         HttpClient customer,
         string title,
         string priority)
@@ -261,7 +277,10 @@ public sealed class TicketWorkflowTests(ApiTestFactory factory) : IClassFixture<
 
         response.StatusCode.Should().BeOneOf(HttpStatusCode.Created, HttpStatusCode.OK);
         using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        return ReadString(payload.RootElement, "number");
+        ApiTestClientExtensions.TryGetPropertyIgnoringCase(payload.RootElement, "number", out var number)
+            .Should().BeTrue();
+        number.ValueKind.Should().Be(JsonValueKind.Number);
+        return number.GetInt32();
     }
 
     private static async Task ShouldSucceedAsync(Task<HttpResponseMessage> responseTask)

@@ -4,8 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { DashboardMetrics } from '../../core/models/admin.models';
-import { formatMinutes } from '../../core/models/ticket.models';
+import { DashboardMetrics, formatMinutes } from '../../core/models';
 import { AdminService } from '../../core/services/admin.service';
 import { apiErrorMessage } from '../../core/services/api-error';
 

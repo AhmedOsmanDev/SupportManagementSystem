@@ -43,13 +43,12 @@ public sealed class UserAndCommentTests
     {
         var authorId = Guid.NewGuid();
 
-        var comment = Comment.Create("TKT-000001", authorId, "  Please investigate.  ");
+        var comment = Comment.Create(1, authorId, "  Please investigate.  ");
 
         comment.Id.Should().NotBeEmpty();
-        comment.TicketNumber.Should().Be("TKT-000001");
+        comment.TicketNumber.Should().Be(1);
         comment.UserId.Should().Be(authorId);
         comment.Content.Should().Be("Please investigate.");
         comment.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(2));
     }
 }
-

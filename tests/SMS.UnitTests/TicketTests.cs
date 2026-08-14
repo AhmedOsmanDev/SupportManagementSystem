@@ -13,13 +13,13 @@ public sealed class TicketTests
         var before = DateTime.UtcNow;
 
         var ticket = Ticket.Create(
-            "TKT-000001",
+            1,
             "  Printer unavailable  ",
             "  The reception printer cannot be reached.  ",
             TicketPriority.High,
             CustomerId);
 
-        ticket.Number.Should().Be("TKT-000001");
+        ticket.Number.Should().Be(1);
         ticket.Title.Should().Be("Printer unavailable");
         ticket.Description.Should().Be("The reception printer cannot be reached.");
         ticket.CustomerId.Should().Be(CustomerId);
@@ -127,10 +127,26 @@ public sealed class TicketTests
         ticket.UpdatedAt.Should().BeOnOrAfter(ticket.CreatedAt);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Create_WithNonPositiveTicketNumber_Throws(int number)
+    {
+        var act = () => Ticket.Create(
+            number,
+            "Ticket title",
+            "Ticket description long enough",
+            TicketPriority.Medium,
+            CustomerId);
+
+        act.Should().Throw<ArgumentOutOfRangeException>()
+            .WithParameterName("number");
+    }
+
     private static Ticket TicketAt(TicketStatus status)
     {
         var ticket = Ticket.Create(
-            $"TKT-{Guid.NewGuid():N}",
+            1,
             "Ticket title",
             "Ticket description long enough",
             TicketPriority.Medium,
@@ -146,4 +162,3 @@ public sealed class TicketTests
         return ticket;
     }
 }
-

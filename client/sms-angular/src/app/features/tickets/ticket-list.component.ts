@@ -17,7 +17,7 @@ import {
   ticketStatuses,
   TicketSummary,
   displayStatus,
-} from '../../core/models/ticket.models';
+} from '../../core/models';
 import { apiErrorMessage } from '../../core/services/api-error';
 import { AuthService } from '../../core/services/auth.service';
 import { TicketService } from '../../core/services/ticket.service';

@@ -24,7 +24,7 @@ import { AuthService } from '../../core/services/auth.service';
     <main class="login-page">
       <section class="login-brand" aria-label="Support management introduction">
         <div class="brand-mark brand-mark--large" aria-hidden="true">S</div>
-        <p class="eyebrow">Support workspace</p>
+        <p class="eyebrow">SMS workspace</p>
         <h1>Turn every request into a clear next step.</h1>
         <p class="login-intro">
           One focused place for customers and support teams to resolve issues, share context, and

@@ -39,7 +39,7 @@ import { AuthService } from '../../core/services/auth.service';
       >
         <a class="nav-brand" routerLink="/tickets" (click)="closeOnHandset(drawer)">
           <span class="brand-mark" aria-hidden="true">S</span>
-          <span><strong>Supportly</strong><small>Service workspace</small></span>
+          <span><strong>Support Management System</strong><small>SMS workspace</small></span>
         </a>
 
         <nav aria-label="Main navigation">

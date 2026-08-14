@@ -7,7 +7,7 @@ import {
   CreateUserRequest,
   DashboardMetrics,
   ManagedUser,
-} from '../models/admin.models';
+} from '../models';
 
 @Injectable({ providedIn: 'root' })
 export class AdminService {

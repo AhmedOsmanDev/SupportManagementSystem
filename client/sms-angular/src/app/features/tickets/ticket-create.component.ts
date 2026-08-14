@@ -7,7 +7,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
-import { ticketPriorities, TicketPriority } from '../../core/models/ticket.models';
+import { ticketPriorities, TicketPriority } from '../../core/models';
 import { apiErrorMessage } from '../../core/services/api-error';
 import { TicketService } from '../../core/services/ticket.service';
 
