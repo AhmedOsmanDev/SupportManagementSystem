@@ -144,5 +144,3 @@ if (migrateOnStartup || seedDemoData)
     await DatabaseInitializer.InitializeAsync(app.Services, seedDemoData);
 
 app.Run();
-
-public partial class Program;
